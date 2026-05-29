@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基本情報技術者 暗記フラッシュカード (JSON Data)</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --primary-color: #3700b3;
+            --accent-desc: #ffb74d;
+            --accent-term: #64b5f6;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+        p {
+            color: #b0b0b0;
+            font-size: 0.95rem;
+        }
+        .status-message {
+            color: #ff8a80;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        .setup-screen input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            font-size: 1.2rem;
+            background-color: #2c2c2c;
+            border: 2px solid #444;
+            border-radius: 8px;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        /* モード選択のスタイル */
+        .mode-selection {
+            background-color: #151515;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            border: 1px solid #2c2c2c;
+        }
+        .mode-label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+        .mode-label input {
+            cursor: pointer;
+        }
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover {
+            background-color: #4f11e6;
+        }
+        .btn:disabled {
+            background-color: #555555;
+            color: #aaaaaa;
+            cursor: not-allowed;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+        .progress {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            margin-bottom: 15px;
+        }
+        .timer-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #333;
+            border-radius: 3px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .timer-progress {
+            height: 100%;
+            background-color: #03dac6;
+            width: 100%;
+        }
+        .card-box {
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #2c2c2c;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            background-color: #151515;
+            box-sizing: border-box;
+        }
+        .label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        .label.description {
+            background-color: rgba(255, 183, 77, 0.15);
+            color: var(--accent-desc);
+            border: 1px solid var(--accent-desc);
+        }
+        .label.term {
+            background-color: rgba(100, 181, 246, 0.15);
+            color: var(--accent-term);
+            border: 1px solid var(--accent-term);
+        }
+        .content {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.6;
+            color: #ffffff;
+            word-break: break-all;
+        }
+        .control-btns {
+            display: flex;
+            justify-content: space-around;
+            gap: 15px;
+        }
+        .btn-secondary {
+            background-color: #333333;
+            flex: 1;
+        }
+        .btn-secondary:hover {
+            background-color: #444444;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="setupScreen" class="screen active">
+        <h1>暗記フラッシュカード</h1>
+        <div id="statusMsg" class="status-message">データを読み込み中...</div>
+        
+        <p>出題モードを選択してください</p>
+        <div class="mode-selection">
+            <label class="mode-label">
+                <input type="radio" name="quizMode" value="descToTerm" checked>
+                解説 ⇒ 用語
+            </label>
+            <label class="mode-label">
+                <input type="radio" name="quizMode" value="termToDesc">
+                用語 ⇒ 解説
+            </label>
+        </div>
+
+        <p>カード切り替わり秒数を指定</p>
+        <input type="number" id="intervalInput" value="5" min="1" max="60"> 秒<br>
+        <button class="btn" id="startBtn" onclick="startFlashcard()" disabled>スタート</button>
+    </div>
+
+    <div id="cardScreen" class="screen">
+        <div class="progress" id="progressText">0 / 0</div>
+        <div class="timer-bar">
+            <div id="timerProgress" class="timer-progress"></div>
+        </div>
+        <div class="card-box">
+            <div id="cardLabel" class="label"></div>
+            <div id="cardContent" class="content"></div>
+        </div>
+        <div class="control-btns">
+            <button class="btn btn-secondary" onclick="pauseOrResume()" id="pauseBtn">一時停止</button>
+            <button class="btn btn-secondary" onclick="stopFlashcard()">終了</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cards = [];
+    let currentIndex = 0;
+    let isShowingAnswer = false; // 答えを表示しているかどうかのフラグ
+    let intervalTime = 5000;
+    let timerId = null;
+    let animationId = null;
+    let startTime = 0;
+    let pausedTime = 0;
+    let isPaused = false;
+    let currentMode = "descToTerm"; // 出題モードの保持用
+
+    const setupScreen = document.getElementById('setupScreen');
+    const cardScreen = document.getElementById('cardScreen');
+    const intervalInput = document.getElementById('intervalInput');
+    const progressText = document.getElementById('progressText');
+    const timerProgress = document.getElementById('timerProgress');
+    const cardLabel = document.getElementById('cardLabel');
+    const cardContent = document.getElementById('cardContent');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const startBtn = document.getElementById('startBtn');
+    const statusMsg = document.getElementById('statusMsg');
+
+    // data.json を非同期で読み込む処理
+    async function loadExternalJSON() {
+        try {
+            const response = await fetch('data.json');
+            if (!response.ok) {
+                throw new Error('データが読み込めないみたい');
+            }
+            cards = await response.json();
+            cards = cards.filter(card => card.term && card.desc);
+
+            if (cards.length > 0) {
+                statusMsg.style.color = '#03dac6';
+                statusMsg.innerText = `準備完了！ (${cards.length}問)`;
+                startBtn.disabled = false;
+            } else {
+                statusMsg.innerText = 'データが空、または形式が正しくありません。';
+            }
+        } catch (error) {
+            statusMsg.innerText = 'エラー: データが見つからない！待ってて！。';
+            console.error(error);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadExternalJSON);
+
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    function changeScreen(fromScreen, toScreen) {
+        fromScreen.classList.remove('active');
+        toScreen.classList.add('active');
+    }
+
+    function startFlashcard() {
+        if (cards.length === 0) return;
+        
+        // 選択された出題モードを取得
+        currentMode = document.querySelector('input[name="quizMode"]:checked').value;
+        
+        const sec = parseInt(intervalInput.value, 10) || 5;
+        intervalTime = sec * 1000;
+
+        shuffle(cards);
+        currentIndex = 0;
+        isShowingAnswer = false;
+        isPaused = false;
+        pauseBtn.innerText = "一時停止";
+
+        changeScreen(setupScreen, cardScreen);
+        showCard();
+    }
+
+    function showCard() {
+        if (currentIndex >= cards.length) {
+            alert('すべてのカードが終了しました！');
+            stopFlashcard();
+            return;
+        }
+
+        progressText.innerText = `${currentIndex + 1} / ${cards.length}`;
+        const currentCard = cards[currentIndex];
+
+        if (currentMode === "descToTerm") {
+            // 【標準モード】解説 ⇒ 用語
+            if (!isShowingAnswer) {
+                cardLabel.innerText = "解説";
+                cardLabel.className = "label description";
+                cardContent.innerText = currentCard.desc;
+            } else {
+                cardLabel.innerText = "用語";
+                cardLabel.className = "label term";
+                cardContent.innerText = currentCard.term;
+            }
+        } else {
+            // 【逆転モード】用語 ⇒ 解説
+            if (!isShowingAnswer) {
+                cardLabel.innerText = "用語";
+                cardLabel.className = "label term";
+                cardContent.innerText = currentCard.term;
+            } else {
+                cardLabel.innerText = "解説";
+                cardLabel.className = "label description";
+                cardContent.innerText = currentCard.desc;
+            }
+        }
+
+        startTimer();
+    }
+
+    function startTimer() {
+        cancelAnimationFrame(animationId);
+        clearTimeout(timerId);
+        
+        startTime = performance.now();
+        if (isPaused) {
+            startTime -= pausedTime;
+            isPaused = false;
+        } else {
+            pausedTime = 0;
+        }
+
+        function updateProgressBar(now) {
+            const elapsed = now - startTime;
+            const remainingRatio = Math.max(0, 100 - (elapsed / intervalTime) * 100);
+            timerProgress.style.width = remainingRatio + '%';
+
+            if (elapsed < intervalTime) {
+                animationId = requestAnimationFrame(updateProgressBar);
+            }
+        }
+        animationId = requestAnimationFrame(updateProgressBar);
+
+        timerId = setTimeout(() => {
+            if (!isShowingAnswer) {
+                isShowingAnswer = true;
+            } else {
+                isShowingAnswer = false;
+                currentIndex++;
+            }
+            showCard();
+        }, intervalTime);
+    }
+
+    function pauseOrResume() {
+        if (!isPaused) {
+            isPaused = true;
+            cancelAnimationFrame(animationId);
+            clearTimeout(timerId);
+            pausedTime = performance.now() - startTime;
+            pauseBtn.innerText = "再開";
+        } else {
+            isPaused = false;
+            pauseBtn.innerText = "一時停止";
+            startTimer();
+        }
+    }
+
+    function stopFlashcard() {
+        cancelAnimationFrame(animationId);
+        clearTimeout(timerId);
+        changeScreen(cardScreen, setupScreen);
+    }
+</script>
+
+</body>
+</html>
