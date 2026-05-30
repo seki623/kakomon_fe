@@ -12,6 +12,8 @@
             --primary-color: #3700b3;
             --accent-desc: #ffb74d;
             --accent-term: #64b5f6;
+            --success-color: #03dac6;
+            --error-color: #ff8a80;
         }
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -32,6 +34,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             text-align: center;
             box-sizing: border-box;
+            margin: 20px 0;
         }
         h1 {
             font-size: 1.4rem;
@@ -41,33 +44,35 @@
         p {
             color: #b0b0b0;
             font-size: 0.95rem;
+            margin: 15px 0 8px 0;
         }
         .status-message {
-            color: #ff8a80;
+            color: var(--error-color);
             font-size: 0.9rem;
             margin-bottom: 15px;
         }
-        .setup-screen input[type="number"] {
-            width: 80px;
-            padding: 10px;
-            font-size: 1.2rem;
-            background-color: #2c2c2c;
-            border: 2px solid #444;
-            border-radius: 8px;
-            color: #ffffff;
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        /* モード選択のスタイル */
-        .mode-selection {
+        
+        /* 設定グループのスタイル */
+        .setting-group {
             background-color: #151515;
             padding: 15px;
             border-radius: 10px;
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
+            margin-bottom: 15px;
             border: 1px solid #2c2c2c;
+            text-align: left;
+        }
+        .setting-group p {
+            margin-top: 0;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        
+        /* 選択肢のレイアウト */
+        .radio-set {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: flex-start;
         }
         .mode-label {
             cursor: pointer;
@@ -79,6 +84,26 @@
         .mode-label input {
             cursor: pointer;
         }
+        
+        /* 数値入力エリア */
+        .input-set {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 0.95rem;
+        }
+        .input-set input[type="number"] {
+            width: 70px;
+            padding: 8px;
+            font-size: 1rem;
+            background-color: #2c2c2c;
+            border: 2px solid #444;
+            border-radius: 8px;
+            color: #ffffff;
+            text-align: center;
+        }
+
         .btn {
             background-color: var(--primary-color);
             color: white;
@@ -88,6 +113,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
+            margin-top: 10px;
         }
         .btn:hover {
             background-color: #4f11e6;
@@ -103,24 +129,44 @@
         .screen.active {
             display: block;
         }
-        .progress {
+        
+        /* 進捗バー関連 */
+        .progress-container {
+            display: flex;
+            justify-content: space-between;
             font-size: 0.9rem;
             color: #a0a0a0;
-            margin-bottom: 15px;
+            margin-bottom: 5px;
+        }
+        .total-progress-bar {
+            width: 100%;
+            height: 4px;
+            background-color: #2c2c2c;
+            border-radius: 2px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .total-progress-fill {
+            height: 100%;
+            background-color: #9575cd;
+            width: 0%;
+            transition: width 0.3s ease;
         }
         .timer-bar {
             width: 100%;
             height: 6px;
             background-color: #333;
             border-radius: 3px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             overflow: hidden;
         }
         .timer-progress {
             height: 100%;
-            background-color: #03dac6;
+            background-color: var(--success-color);
             width: 100%;
         }
+        
+        /* カードエリア */
         .card-box {
             min-height: 220px;
             display: flex;
@@ -133,6 +179,11 @@
             margin-bottom: 25px;
             background-color: #151515;
             box-sizing: border-box;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .card-box:hover {
+            border-color: #444;
         }
         .label {
             font-size: 0.85rem;
@@ -159,10 +210,13 @@
             color: #ffffff;
             word-break: break-all;
         }
+        
+        /* コントロールボタン群 */
         .control-btns {
             display: flex;
             justify-content: space-around;
-            gap: 15px;
+            gap: 12px;
+            margin-bottom: 12px;
         }
         .btn-secondary {
             background-color: #333333;
@@ -170,6 +224,29 @@
         }
         .btn-secondary:hover {
             background-color: #444444;
+        }
+        .btn-action {
+            flex: 1;
+            padding: 10px;
+            font-size: 1rem;
+        }
+        .btn-know {
+            background-color: #1b5e20;
+        }
+        .btn-know:hover {
+            background-color: #2e7d32;
+        }
+        .btn-yet {
+            background-color: #b71c1c;
+        }
+        .btn-yet:hover {
+            background-color: #c62828;
+        }
+        .manual-tip {
+            font-size: 0.8rem;
+            color: #777;
+            margin-top: -15px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -180,32 +257,66 @@
         <h1>暗記フラッシュカード</h1>
         <div id="statusMsg" class="status-message">データを読み込み中...</div>
         
-        <p>出題モードを選択してください</p>
-        <div class="mode-selection">
-            <label class="mode-label">
-                <input type="radio" name="quizMode" value="descToTerm" checked>
-                解説 ⇒ 用語
-            </label>
-            <label class="mode-label">
-                <input type="radio" name="quizMode" value="termToDesc">
-                用語 ⇒ 解説
-            </label>
+        <div class="setting-group">
+            <p>出題モード</p>
+            <div class="radio-set">
+                <label class="mode-label"><input type="radio" name="quizMode" value="descToTerm" checked> 解説 ⇒ 用語</label>
+                <label class="mode-label"><input type="radio" name="quizMode" value="termToDesc"> 用語 ⇒ 解説</label>
+                <label class="mode-label"><input type="radio" name="quizMode" value="descOnly"> 解説のみ</label>
+                <label class="mode-label"><input type="radio" name="quizMode" value="termOnly"> 用語のみ</label>
+            </div>
         </div>
 
-        <p>カード切り替わり秒数を指定</p>
-        <input type="number" id="intervalInput" value="5" min="1" max="60"> 秒<br>
+        <div class="setting-group">
+            <p>出題順</p>
+            <div class="radio-set">
+                <label class="mode-label"><input type="radio" name="orderMode" value="shuffle" checked> シャッフル</label>
+                <label class="mode-label"><input type="radio" name="orderMode" value="forward"> 順送り</label>
+                <label class="mode-label"><input type="radio" name="orderMode" value="backward"> 逆送り</label>
+            </div>
+        </div>
+
+        <div class="setting-group">
+            <p>タイマー設定 (0秒で手動めくり)</p>
+            <div class="input-set" id="timerInputs">
+                <div id="p1TimeWrap">
+                    <span id="p1TimeLabel">問題側:</span>
+                    <input type="number" id="intervalInputP1" value="5" min="0" max="60"> 秒
+                </div>
+                <div id="p2TimeWrap">
+                    <span id="p2TimeLabel">答え側:</span>
+                    <input type="number" id="intervalInputP2" value="3" min="0" max="60"> 秒
+                </div>
+            </div>
+        </div>
+
         <button class="btn" id="startBtn" onclick="startFlashcard()" disabled>スタート</button>
     </div>
 
     <div id="cardScreen" class="screen">
-        <div class="progress" id="progressText">0 / 0</div>
+        <div class="progress-container">
+            <div id="progressText">0 / 0</div>
+            <div id="yetCountText">未習得: 0</div>
+        </div>
+        <div class="total-progress-bar">
+            <div id="totalProgressFill" class="total-progress-fill"></div>
+        </div>
         <div class="timer-bar">
             <div id="timerProgress" class="timer-progress"></div>
         </div>
-        <div class="card-box">
+        
+        <div class="manual-tip" id="manualTip">💡 カードをクリックすると次へ進みます</div>
+
+        <div class="card-box" onclick="handleCardClick()">
             <div id="cardLabel" class="label"></div>
             <div id="cardContent" class="content"></div>
         </div>
+
+        <div class="control-btns" id="actionBtnArea">
+            <button class="btn btn-action btn-yet" onclick="markCard(false)">まだ</button>
+            <button class="btn btn-action btn-know" onclick="markCard(true)">覚えた</button>
+        </div>
+
         <div class="control-btns">
             <button class="btn btn-secondary" onclick="pauseOrResume()" id="pauseBtn">一時停止</button>
             <button class="btn btn-secondary" onclick="stopFlashcard()">終了</button>
@@ -214,121 +325,204 @@
 </div>
 
 <script>
-    let cards = [];
+    let masterCards = [];     // 読み込んだ全データ
+    let currentPool = [];     // 今回解くカードのプール
+    let yetCards = [];        // 「まだ」に仕分けられたカード
     let currentIndex = 0;
-    let isShowingAnswer = false; // 答えを表示しているかどうかのフラグ
-    let intervalTime = 5000;
+    let isShowingAnswer = false;
+    
+    let intervalTimeP1 = 5000; // 問題側（または単一表示）のタイマー時間
+    let intervalTimeP2 = 3000; // 答え側のタイマー時間
+    let currentInterval = 5000;
+    
     let timerId = null;
     let animationId = null;
     let startTime = 0;
     let pausedTime = 0;
     let isPaused = false;
-    let currentMode = "descToTerm"; // 出題モードの保持用
+    let isManualMode = false;
+
+    let currentMode = "descToTerm"; 
+    let currentOrder = "shuffle";
+    let isReviewingYetMode = false; // 「まだ」の再復習中かどうかのフラグ
 
     const setupScreen = document.getElementById('setupScreen');
     const cardScreen = document.getElementById('cardScreen');
-    const intervalInput = document.getElementById('intervalInput');
+    const intervalInputP1 = document.getElementById('intervalInputP1');
+    const intervalInputP2 = document.getElementById('intervalInputP2');
     const progressText = document.getElementById('progressText');
+    const yetCountText = document.getElementById('yetCountText');
+    const totalProgressFill = document.getElementById('totalProgressFill');
     const timerProgress = document.getElementById('timerProgress');
     const cardLabel = document.getElementById('cardLabel');
     const cardContent = document.getElementById('cardContent');
     const pauseBtn = document.getElementById('pauseBtn');
     const startBtn = document.getElementById('startBtn');
     const statusMsg = document.getElementById('statusMsg');
+    const actionBtnArea = document.getElementById('actionBtnArea');
+    const manualTip = document.getElementById('manualTip');
+    const p2TimeWrap = document.getElementById('p2TimeWrap');
+    const p1TimeLabel = document.getElementById('p1TimeLabel');
 
-    // data.json を非同期で読み込む処理
+    // ラジオボタンの変更を監視して、タイマー入力欄の表示を最適化
+    document.querySelectorAll('input[name="quizMode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === "descOnly" || e.target.value === "termOnly") {
+                p2TimeWrap.style.display = "none";
+                p1TimeLabel.innerText = "切り替え秒数:";
+            } else {
+                p2TimeWrap.style.display = "inline-block";
+                p1TimeLabel.innerText = "問題側:";
+            }
+        });
+    });
+
+    // data.json の非同期読み込み
     async function loadExternalJSON() {
         try {
             const response = await fetch('data.json');
-            if (!response.ok) {
-                throw new Error('データが読み込めないみたい');
-            }
-            cards = await response.json();
-            cards = cards.filter(card => card.term && card.desc);
+            if (!response.ok) throw new Error('data.json の読み込みに失敗しました。');
+            
+            masterCards = await response.json();
+            masterCards = masterCards.filter(card => card.term && card.desc);
 
-            if (cards.length > 0) {
+            if (masterCards.length > 0) {
                 statusMsg.style.color = '#03dac6';
-                statusMsg.innerText = `準備完了！ (${cards.length}問)`;
+                statusMsg.innerText = `JSONデータを正常に読み込みました (${masterCards.length}問)`;
                 startBtn.disabled = false;
             } else {
                 statusMsg.innerText = 'データが空、または形式が正しくありません。';
             }
         } catch (error) {
-            statusMsg.innerText = 'エラー: データが見つからない！待ってて！。';
+            statusMsg.innerText = 'エラー: data.json が見つからないか、反映待ちです。';
             console.error(error);
         }
     }
 
     window.addEventListener('DOMContentLoaded', loadExternalJSON);
 
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-    }
-
     function changeScreen(fromScreen, toScreen) {
         fromScreen.classList.remove('active');
         toScreen.classList.add('active');
     }
 
+    // フラッシュカード開始
     function startFlashcard() {
-        if (cards.length === 0) return;
+        if (masterCards.length === 0) return;
         
-        // 選択された出題モードを取得
         currentMode = document.querySelector('input[name="quizMode"]:checked').value;
+        currentOrder = document.querySelector('input[name="orderMode"]:checked').value;
         
-        const sec = parseInt(intervalInput.value, 10) || 5;
-        intervalTime = sec * 1000;
+        const sec1 = parseInt(intervalInputP1.value, 10) || 0;
+        const sec2 = parseInt(intervalInputP2.value, 10) || 0;
+        
+        intervalTimeP1 = sec1 * 1000;
+        intervalTimeP2 = sec2 * 1000;
+        
+        // どちらか片方でも0秒なら手動モード扱い（単一モード時はsec1のみ連動）
+        if (currentMode === "descOnly" || currentMode === "termOnly") {
+            isManualMode = (sec1 === 0);
+        } else {
+            isManualMode = (sec1 === 0 || sec2 === 0);
+        }
 
-        shuffle(cards);
+        // 初回スタート時はマスターから複製
+        currentPool = [...masterCards];
+        applyOrder();
+
         currentIndex = 0;
         isShowingAnswer = false;
         isPaused = false;
+        isReviewingYetMode = false;
+        yetCards = [];
+        
         pauseBtn.innerText = "一時停止";
+        pauseBtn.style.display = isManualMode ? "none" : "inline-block";
+        manualTip.style.display = isManualMode ? "block" : "none";
 
         changeScreen(setupScreen, cardScreen);
         showCard();
     }
 
+    // 出題順の適用
+    function applyOrder() {
+        if (currentOrder === "shuffle") {
+            for (let i = currentPool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentPool[i], currentPool[j]] = [currentPool[j], currentPool[i]];
+            }
+        } else if (currentOrder === "backward") {
+            currentPool.reverse();
+        }
+        // forward（順送り）の場合はそのまま
+    }
+
+    // カードの表示処理
     function showCard() {
-        if (currentIndex >= cards.length) {
-            alert('すべてのカードが終了しました！');
-            stopFlashcard();
+        if (currentIndex >= currentPool.length) {
+            handlePoolComplete();
             return;
         }
 
-        progressText.innerText = `${currentIndex + 1} / ${cards.length}`;
-        const currentCard = cards[currentIndex];
+        // 進捗表示の更新
+        progressText.innerText = `${currentIndex + 1} / ${currentPool.length}`;
+        yetCountText.innerText = `未習得: ${yetCards.length}`;
+        const totalPercent = (currentIndex / currentPool.length) * 100;
+        totalProgressFill.style.width = `${totalPercent}%`;
 
+        const currentCard = currentPool[currentIndex];
+
+        // 各モードに応じた表示分岐
         if (currentMode === "descToTerm") {
-            // 【標準モード】解説 ⇒ 用語
+            actionBtnArea.style.display = "none"; // 自動/手動に関わらず最初は隠す
             if (!isShowingAnswer) {
-                cardLabel.innerText = "解説";
+                cardLabel.innerText = "解説（これの用語は何？）";
                 cardLabel.className = "label description";
                 cardContent.innerText = currentCard.desc;
+                currentInterval = intervalTimeP1;
             } else {
-                cardLabel.innerText = "用語";
+                cardLabel.innerText = "答え（用語）";
                 cardLabel.className = "label term";
                 cardContent.innerText = currentCard.term;
+                currentInterval = intervalTimeP2;
+                actionBtnArea.style.display = "flex"; // 答えが出たら仕分けボタンを表示
             }
-        } else {
-            // 【逆転モード】用語 ⇒ 解説
+        } else if (currentMode === "termToDesc") {
+            actionBtnArea.style.display = "none";
             if (!isShowingAnswer) {
-                cardLabel.innerText = "用語";
+                cardLabel.innerText = "用語（これの解説は何？）";
                 cardLabel.className = "label term";
                 cardContent.innerText = currentCard.term;
+                currentInterval = intervalTimeP1;
             } else {
-                cardLabel.innerText = "解説";
+                cardLabel.innerText = "答え（解説）";
                 cardLabel.className = "label description";
                 cardContent.innerText = currentCard.desc;
+                currentInterval = intervalTimeP2;
+                actionBtnArea.style.display = "flex";
             }
+        } else if (currentMode === "descOnly") {
+            cardLabel.innerText = "解説（確認モード）";
+            cardLabel.className = "label description";
+            cardContent.innerText = currentCard.desc;
+            currentInterval = intervalTimeP1;
+            actionBtnArea.style.display = "flex"; // 単一モードは常に仕分けボタンを出す
+        } else if (currentMode === "termOnly") {
+            cardLabel.innerText = "用語（確認モード）";
+            cardLabel.className = "label term";
+            cardContent.innerText = currentCard.term;
+            currentInterval = intervalTimeP1;
+            actionBtnArea.style.display = "flex";
         }
 
-        startTimer();
+        if (!isManualMode) {
+            startTimer();
+        } else {
+            timerProgress.style.width = '100%';
+        }
     }
 
+    // タイマー制御
     function startTimer() {
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
@@ -337,33 +531,107 @@
         if (isPaused) {
             startTime -= pausedTime;
             isPaused = false;
-        } else {
-            pausedTime = 0;
         }
 
         function updateProgressBar(now) {
             const elapsed = now - startTime;
-            const remainingRatio = Math.max(0, 100 - (elapsed / intervalTime) * 100);
+            const remainingRatio = Math.max(0, 100 - (elapsed / currentInterval) * 100);
             timerProgress.style.width = remainingRatio + '%';
 
-            if (elapsed < intervalTime) {
+            if (elapsed < currentInterval) {
                 animationId = requestAnimationFrame(updateProgressBar);
             }
         }
         animationId = requestAnimationFrame(updateProgressBar);
 
         timerId = setTimeout(() => {
+            advanceCardFlow();
+        }, currentInterval);
+    }
+
+    // カードを次に進める内部フロー
+    function advanceCardFlow() {
+        if (currentMode === "descOnly" || currentMode === "termOnly") {
+            // 単一表示モードはめくりを挟まず次のカードへ
+            currentIndex++;
+            showCard();
+        } else {
+            // 2ステップモード
             if (!isShowingAnswer) {
                 isShowingAnswer = true;
+                showCard();
             } else {
                 isShowingAnswer = false;
                 currentIndex++;
+                showCard();
             }
-            showCard();
-        }, intervalTime);
+        }
     }
 
+    // カードクリック時の挙動（手動めくり・タイマー時スキップ共通）
+    function handleCardClick() {
+        cancelAnimationFrame(animationId);
+        clearTimeout(timerId);
+        advanceCardFlow();
+    }
+
+    // 「覚えた」「まだ」のボタン処理
+    function markCard(isKnown) {
+        cancelAnimationFrame(animationId);
+        clearTimeout(timerId);
+
+        const currentCard = currentPool[currentIndex];
+        
+        if (!isKnown) {
+            // まだ覚えていない場合、リストに重複がなければ追加
+            if (!yetCards.some(c => c.term === currentCard.term)) {
+                yetCards.push(currentCard);
+            }
+        } else {
+            // 「覚えた」場合、再復習プールから削除（2周目以降用）
+            yetCards = yetCards.filter(c => c.term !== currentCard.term);
+        }
+
+        // ボタンを押したら即座に次のカード（または次のステップ）へ移行
+        if (currentMode === "descOnly" || currentMode === "termOnly" || isShowingAnswer) {
+            isShowingAnswer = false;
+            currentIndex++;
+        } else {
+            // 答えを見る前にボタンを押した場合は答えを表示
+            isShowingAnswer = true;
+        }
+        showCard();
+    }
+
+    // 1つのプール（周回）が終わった時の処理
+    function handlePoolComplete() {
+        totalProgressFill.style.width = '100%';
+        cancelAnimationFrame(animationId);
+        clearTimeout(timerId);
+
+        if (yetCards.length > 0) {
+            const retry = confirm(`全カードが終了しました。\n「まだ」と答えた問題が ${yetCards.length} 問あります。復習しますか？`);
+            if (retry) {
+                // 「まだ」のカードを次のプールにして再スタート
+                currentPool = [...yetCards];
+                yetCards = []; // クリアして次の周回用に備える
+                currentIndex = 0;
+                isShowingAnswer = false;
+                isReviewingYetMode = true;
+                applyOrder();
+                showCard();
+                return;
+            }
+        } else {
+            alert('素晴らしいです！すべてのカードを暗記しました！');
+        }
+        stopFlashcard();
+    }
+
+    // 一時停止・再開
     function pauseOrResume() {
+        if (isManualMode) return;
+        
         if (!isPaused) {
             isPaused = true;
             cancelAnimationFrame(animationId);
@@ -377,6 +645,7 @@
         }
     }
 
+    // 終了して設定画面に戻る
     function stopFlashcard() {
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
