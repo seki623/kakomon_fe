@@ -65,6 +65,9 @@
             margin-top: 0;
             font-weight: bold;
             color: #ffffff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         /* 選択肢のレイアウト */
@@ -83,6 +86,10 @@
         }
         .mode-label input {
             cursor: pointer;
+        }
+        .mode-label:disabled, .mode-label input:disabled {
+            color: #555;
+            cursor: not-allowed;
         }
         
         /* 数値入力エリア */
@@ -122,6 +129,16 @@
             background-color: #555555;
             color: #aaaaaa;
             cursor: not-allowed;
+        }
+        .btn-reset {
+            background-color: #424242;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            margin-top: 0;
+            border-radius: 4px;
+        }
+        .btn-reset:hover {
+            background-color: #616161;
         }
         .screen {
             display: none;
@@ -258,6 +275,19 @@
         <div id="statusMsg" class="status-message">データを読み込み中...</div>
         
         <div class="setting-group">
+            <p>
+                <span>対象カードの選択</span>
+                <button class="btn btn-reset" onclick="resetHistory()">履歴をリセット</button>
+            </p>
+            <div class="radio-set">
+                <label class="mode-label"><input type="radio" name="targetGroup" value="all" checked> <span id="lblAll">すべて (0)</span></label>
+                <label class="mode-label" id="optYet"><input type="radio" name="targetGroup" value="yet"> <span id="lblYet" style="color:var(--error-color)">まだ (0)</span></label>
+                <label class="mode-label" id="optKnow"><input type="radio" name="targetGroup" value="know"> <span id="lblKnow" style="color:var(--success-color)">覚えた (0)</span></label>
+                <label class="mode-label" id="optUnseen"><input type="radio" name="targetGroup" value="unseen"> <span id="lblUnseen">未選択 (0)</span></label>
+            </div>
+        </div>
+
+        <div class="setting-group">
             <p>出題モード</p>
             <div class="radio-set">
                 <label class="mode-label"><input type="radio" name="quizMode" value="descToTerm" checked> 解説 ⇒ 用語</label>
@@ -296,7 +326,7 @@
     <div id="cardScreen" class="screen">
         <div class="progress-container">
             <div id="progressText">0 / 0</div>
-            <div id="yetCountText">未習得: 0</div>
+            <div id="statusLabelText" style="font-size:0.85rem; color:#aaa;"></div>
         </div>
         <div class="total-progress-bar">
             <div id="totalProgressFill" class="total-progress-fill"></div>
@@ -305,7 +335,7 @@
             <div id="timerProgress" class="timer-progress"></div>
         </div>
         
-        <div class="manual-tip" id="manualTip">💡 カードをクリックすると次へ進みます</div>
+        <div class="manual-tip" id="manualTip">💡 カードをクリックすると次へ進めます</div>
 
         <div class="card-box" onclick="handleCardClick()">
             <div id="cardLabel" class="label"></div>
@@ -325,14 +355,13 @@
 </div>
 
 <script>
-    let masterCards = [];     // 読み込んだ全データ
-    let currentPool = [];     // 今回解くカードのプール
-    let yetCards = [];        // 「まだ」に仕分けられたカード
+    let masterCards = [];     // 全元のデータ
+    let currentPool = [];     // 今回再生する対象カードの配列
     let currentIndex = 0;
     let isShowingAnswer = false;
     
-    let intervalTimeP1 = 5000; // 問題側（または単一表示）のタイマー時間
-    let intervalTimeP2 = 3000; // 答え側のタイマー時間
+    let intervalTimeP1 = 5000;
+    let intervalTimeP2 = 3000;
     let currentInterval = 5000;
     
     let timerId = null;
@@ -344,14 +373,16 @@
 
     let currentMode = "descToTerm"; 
     let currentOrder = "shuffle";
-    let isReviewingYetMode = false; // 「まだ」の再復習中かどうかのフラグ
+
+    // 履歴管理用のオブジェクト (Key: 用語の文字列, Value: 'know' または 'yet')
+    let cardHistory = {};
 
     const setupScreen = document.getElementById('setupScreen');
     const cardScreen = document.getElementById('cardScreen');
     const intervalInputP1 = document.getElementById('intervalInputP1');
     const intervalInputP2 = document.getElementById('intervalInputP2');
     const progressText = document.getElementById('progressText');
-    const yetCountText = document.getElementById('yetCountText');
+    const statusLabelText = document.getElementById('statusLabelText');
     const totalProgressFill = document.getElementById('totalProgressFill');
     const timerProgress = document.getElementById('timerProgress');
     const cardLabel = document.getElementById('cardLabel');
@@ -364,7 +395,7 @@
     const p2TimeWrap = document.getElementById('p2TimeWrap');
     const p1TimeLabel = document.getElementById('p1TimeLabel');
 
-    // ラジオボタンの変更を監視して、タイマー入力欄の表示を最適化
+    // モード選択に応じてタイマー表示を調整
     document.querySelectorAll('input[name="quizMode"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             if (e.target.value === "descOnly" || e.target.value === "termOnly") {
@@ -377,7 +408,50 @@
         });
     });
 
-    // data.json の非同期読み込み
+    // ローカルストレージから履歴を読み込んでラベルの件数を更新
+    function loadHistoryAndRefreshLabels() {
+        const saved = localStorage.getItem('flashcard_history_v2');
+        if (saved) {
+            try { cardHistory = JSON.parse(saved); } catch(e) { cardHistory = {}; }
+        } else {
+            cardHistory = {};
+        }
+
+        if (masterCards.length === 0) return;
+
+        let countAll = masterCards.length;
+        let countYet = 0;
+        let countKnow = 0;
+        let countUnseen = 0;
+
+        masterCards.forEach(card => {
+            const status = cardHistory[card.term];
+            if (status === 'know') countKnow++;
+            else if (status === 'yet') countYet++;
+            else countUnseen++;
+        });
+
+        document.getElementById('lblAll').innerText = `すべて (${countAll})`;
+        document.getElementById('lblYet').innerText = `まだ (${countYet})`;
+        document.getElementById('lblKnow').innerText = `覚えた (${countKnow})`;
+        document.getElementById('lblUnseen').innerText = `未選択 (${countUnseen})`;
+
+        // 件数が0の選択肢を無効化・有効化
+        document.querySelector('input[name="targetGroup"][value="yet"]').disabled = (countYet === 0);
+        document.querySelector('input[name="targetGroup"][value="know"]').disabled = (countKnow === 0);
+        document.querySelector('input[name="targetGroup"][value="unseen"]').disabled = (countUnseen === 0);
+    }
+
+    // 履歴を全リセット
+    function resetHistory() {
+        if(confirm("仕分けた履歴をすべて消去して初期状態に戻しますか？")) {
+            localStorage.removeItem('flashcard_history_v2');
+            loadHistoryAndRefreshLabels();
+            document.querySelector('input[name="targetGroup"][value="all"]').checked = true;
+        }
+    }
+
+    // data.json 読み込み
     async function loadExternalJSON() {
         try {
             const response = await fetch('data.json');
@@ -388,8 +462,9 @@
 
             if (masterCards.length > 0) {
                 statusMsg.style.color = '#03dac6';
-                statusMsg.innerText = `JSONデータを正常に読み込みました (${masterCards.length}問)`;
+                statusMsg.innerText = `データを正常に読み込みました (${masterCards.length}問)`;
                 startBtn.disabled = false;
+                loadHistoryAndRefreshLabels();
             } else {
                 statusMsg.innerText = 'データが空、または形式が正しくありません。';
             }
@@ -406,12 +481,29 @@
         toScreen.classList.add('active');
     }
 
-    // フラッシュカード開始
+    // 再生スタート
     function startFlashcard() {
         if (masterCards.length === 0) return;
         
         currentMode = document.querySelector('input[name="quizMode"]:checked').value;
         currentOrder = document.querySelector('input[name="orderMode"]:checked').value;
+        const targetGroup = document.querySelector('input[name="targetGroup"]:checked').value;
+        
+        // 対象カードのフィルタリング
+        if (targetGroup === 'all') {
+            currentPool = [...masterCards];
+        } else if (targetGroup === 'yet') {
+            currentPool = masterCards.filter(c => cardHistory[c.term] === 'yet');
+        } else if (targetGroup === 'know') {
+            currentPool = masterCards.filter(c => cardHistory[c.term] === 'know');
+        } else if (targetGroup === 'unseen') {
+            currentPool = masterCards.filter(c => !cardHistory[c.term]);
+        }
+
+        if (currentPool.length === 0) {
+            alert('選択された対象のカードがありません。');
+            return;
+        }
         
         const sec1 = parseInt(intervalInputP1.value, 10) || 0;
         const sec2 = parseInt(intervalInputP2.value, 10) || 0;
@@ -419,22 +511,17 @@
         intervalTimeP1 = sec1 * 1000;
         intervalTimeP2 = sec2 * 1000;
         
-        // どちらか片方でも0秒なら手動モード扱い（単一モード時はsec1のみ連動）
         if (currentMode === "descOnly" || currentMode === "termOnly") {
             isManualMode = (sec1 === 0);
         } else {
             isManualMode = (sec1 === 0 || sec2 === 0);
         }
 
-        // 初回スタート時はマスターから複製
-        currentPool = [...masterCards];
         applyOrder();
 
         currentIndex = 0;
         isShowingAnswer = false;
         isPaused = false;
-        isReviewingYetMode = false;
-        yetCards = [];
         
         pauseBtn.innerText = "一時停止";
         pauseBtn.style.display = isManualMode ? "none" : "inline-block";
@@ -444,7 +531,7 @@
         showCard();
     }
 
-    // 出題順の適用
+    // 並び替え適用
     function applyOrder() {
         if (currentOrder === "shuffle") {
             for (let i = currentPool.length - 1; i > 0; i--) {
@@ -454,48 +541,50 @@
         } else if (currentOrder === "backward") {
             currentPool.reverse();
         }
-        // forward（順送り）の場合はそのまま
     }
 
-    // カードの表示処理
+    // 表示処理
     function showCard() {
         if (currentIndex >= currentPool.length) {
             handlePoolComplete();
             return;
         }
 
-        // 進捗表示の更新
         progressText.innerText = `${currentIndex + 1} / ${currentPool.length}`;
-        yetCountText.innerText = `未習得: ${yetCards.length}`;
+        
+        // 現在のカードの現在の保存ステータスを画面右上に小さく表示
+        const currentCard = currentPool[currentIndex];
+        const curStatus = cardHistory[currentCard.term];
+        if(curStatus === 'know') statusLabelText.innerText = "状態: 覚えた";
+        else if(curStatus === 'yet') statusLabelText.innerText = "状態: まだ";
+        else statusLabelText.innerText = "状態: 未選択";
+
         const totalPercent = (currentIndex / currentPool.length) * 100;
         totalProgressFill.style.width = `${totalPercent}%`;
 
-        const currentCard = currentPool[currentIndex];
-
-        // 各モードに応じた表示分岐
         if (currentMode === "descToTerm") {
-            actionBtnArea.style.display = "none"; // 自動/手動に関わらず最初は隠す
+            actionBtnArea.style.display = "none";
             if (!isShowingAnswer) {
-                cardLabel.innerText = "解説（これの用語は何？）";
+                cardLabel.innerText = "解説";
                 cardLabel.className = "label description";
                 cardContent.innerText = currentCard.desc;
                 currentInterval = intervalTimeP1;
             } else {
-                cardLabel.innerText = "答え（用語）";
+                cardLabel.innerText = "用語";
                 cardLabel.className = "label term";
                 cardContent.innerText = currentCard.term;
                 currentInterval = intervalTimeP2;
-                actionBtnArea.style.display = "flex"; // 答えが出たら仕分けボタンを表示
+                actionBtnArea.style.display = "flex";
             }
         } else if (currentMode === "termToDesc") {
             actionBtnArea.style.display = "none";
             if (!isShowingAnswer) {
-                cardLabel.innerText = "用語（これの解説は何？）";
+                cardLabel.innerText = "用語";
                 cardLabel.className = "label term";
                 cardContent.innerText = currentCard.term;
                 currentInterval = intervalTimeP1;
             } else {
-                cardLabel.innerText = "答え（解説）";
+                cardLabel.innerText = "解説";
                 cardLabel.className = "label description";
                 cardContent.innerText = currentCard.desc;
                 currentInterval = intervalTimeP2;
@@ -506,7 +595,7 @@
             cardLabel.className = "label description";
             cardContent.innerText = currentCard.desc;
             currentInterval = intervalTimeP1;
-            actionBtnArea.style.display = "flex"; // 単一モードは常に仕分けボタンを出す
+            actionBtnArea.style.display = "flex";
         } else if (currentMode === "termOnly") {
             cardLabel.innerText = "用語（確認モード）";
             cardLabel.className = "label term";
@@ -522,7 +611,6 @@
         }
     }
 
-    // タイマー制御
     function startTimer() {
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
@@ -549,14 +637,11 @@
         }, currentInterval);
     }
 
-    // カードを次に進める内部フロー
     function advanceCardFlow() {
         if (currentMode === "descOnly" || currentMode === "termOnly") {
-            // 単一表示モードはめくりを挟まず次のカードへ
             currentIndex++;
             showCard();
         } else {
-            // 2ステップモード
             if (!isShowingAnswer) {
                 isShowingAnswer = true;
                 showCard();
@@ -568,70 +653,43 @@
         }
     }
 
-    // カードクリック時の挙動（手動めくり・タイマー時スキップ共通）
     function handleCardClick() {
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
         advanceCardFlow();
     }
 
-    // 「覚えた」「まだ」のボタン処理
+    // 「覚えた」「まだ」の判定をローカルストレージへ保存する
     function markCard(isKnown) {
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
 
         const currentCard = currentPool[currentIndex];
         
-        if (!isKnown) {
-            // まだ覚えていない場合、リストに重複がなければ追加
-            if (!yetCards.some(c => c.term === currentCard.term)) {
-                yetCards.push(currentCard);
-            }
-        } else {
-            // 「覚えた」場合、再復習プールから削除（2周目以降用）
-            yetCards = yetCards.filter(c => c.term !== currentCard.term);
-        }
+        // 履歴を更新して即座に保存
+        cardHistory[currentCard.term] = isKnown ? 'know' : 'yet';
+        localStorage.setItem('flashcard_history_v2', JSON.stringify(cardHistory));
 
-        // ボタンを押したら即座に次のカード（または次のステップ）へ移行
         if (currentMode === "descOnly" || currentMode === "termOnly" || isShowingAnswer) {
             isShowingAnswer = false;
             currentIndex++;
         } else {
-            // 答えを見る前にボタンを押した場合は答えを表示
             isShowingAnswer = true;
         }
         showCard();
     }
 
-    // 1つのプール（周回）が終わった時の処理
+    // 終了時の処理
     function handlePoolComplete() {
         totalProgressFill.style.width = '100%';
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
-
-        if (yetCards.length > 0) {
-            const retry = confirm(`全カードが終了しました。\n「まだ」と答えた問題が ${yetCards.length} 問あります。復習しますか？`);
-            if (retry) {
-                // 「まだ」のカードを次のプールにして再スタート
-                currentPool = [...yetCards];
-                yetCards = []; // クリアして次の周回用に備える
-                currentIndex = 0;
-                isShowingAnswer = false;
-                isReviewingYetMode = true;
-                applyOrder();
-                showCard();
-                return;
-            }
-        } else {
-            alert('素晴らしいです！すべてのカードを暗記しました！');
-        }
+        // ポップアップを挟まずに、自動で設定画面へ戻る
         stopFlashcard();
     }
 
-    // 一時停止・再開
     function pauseOrResume() {
         if (isManualMode) return;
-        
         if (!isPaused) {
             isPaused = true;
             cancelAnimationFrame(animationId);
@@ -645,10 +703,10 @@
         }
     }
 
-    // 終了して設定画面に戻る
     function stopFlashcard() {
         cancelAnimationFrame(animationId);
         clearTimeout(timerId);
+        loadHistoryAndRefreshLabels(); // 設定画面に戻るタイミングで件数表示をリフレッシュ
         changeScreen(cardScreen, setupScreen);
     }
 </script>
