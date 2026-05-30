@@ -310,11 +310,11 @@
             <p>タイマー設定 (0秒で手動めくり)</p>
             <div class="input-set" id="timerInputs">
                 <div id="p1TimeWrap">
-                    <span id="p1TimeLabel">問題側:</span>
+                    <span id="p1TimeLabel">解説:</span>
                     <input type="number" id="intervalInputP1" value="5" min="0" max="60"> 秒
                 </div>
                 <div id="p2TimeWrap">
-                    <span id="p2TimeLabel">答え側:</span>
+                    <span id="p2TimeLabel">用語:</span>
                     <input type="number" id="intervalInputP2" value="3" min="0" max="60"> 秒
                 </div>
             </div>
@@ -342,10 +342,15 @@
             <div id="cardContent" class="content"></div>
         </div>
 
-        <div class="control-btns" id="actionBtnArea">
+        <!-- <div class="control-btns" id="actionBtnArea">
             <button class="btn btn-action btn-yet" onclick="markCard(false)">まだ</button>
             <button class="btn btn-action btn-know" onclick="markCard(true)">覚えた</button>
-        </div>
+        </div> -->
+
+    <div class="control-btns" id="actionBtnArea">
+    <button class="btn btn-action btn-know" onclick="markCard(true)">覚えた</button>
+    <button class="btn btn-action btn-yet" onclick="markCard(false)">まだ</button>
+    </div>
 
         <div class="control-btns">
             <button class="btn btn-secondary" onclick="pauseOrResume()" id="pauseBtn">一時停止</button>
